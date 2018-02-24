@@ -3,3 +3,4 @@
 
 # ignore models
 /models/*
+/tf_models/*
