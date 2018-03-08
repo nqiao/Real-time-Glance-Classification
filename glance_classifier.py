@@ -14,6 +14,85 @@ import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
 
+
+
+def LeNet(x):    
+    # Arguments used for tf.truncated_normal, randomly defines variables for the weights and biases for each layer
+    mu = 0
+    sigma = 0.1
+    
+    # Layer 1: Convolutional. Input = 32x32x1. Output = 28x28x6.
+    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 1, 6), mean = mu, stddev = sigma))
+    conv1_b = tf.Variable(tf.zeros(6))
+    conv1   = tf.nn.conv2d(x, conv1_W, strides=[1, 1, 1, 1], padding='VALID') + conv1_b
+
+    # Activation.
+    conv1 = tf.nn.relu(conv1)
+
+    # Pooling. Input = 28x28x6. Output = 14x14x6.
+    conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+    # Layer 2: Convolutional. Output = 10x10x16.
+    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean = mu, stddev = sigma))
+    conv2_b = tf.Variable(tf.zeros(16))
+    conv2   = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID') + conv2_b
+    
+    # Activation.
+    conv2 = tf.nn.relu(conv2)
+
+    # Pooling. Input = 10x10x16. Output = 5x5x16.
+    conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+    # Flatten. Input = 5x5x16. Output = 400.
+    fc0   = flatten(conv2)
+    
+    # Layer 3: Fully Connected. Input = 400. Output = 120.
+    fc1_W = tf.Variable(tf.truncated_normal(shape=(1408, 120), mean = mu, stddev = sigma))
+    fc1_b = tf.Variable(tf.zeros(120))
+    fc1   = tf.matmul(fc0, fc1_W) + fc1_b
+    
+    # Activation.
+    fc1    = tf.nn.relu(fc1)
+
+    # Layer 4: Fully Connected. Input = 120. Output = 84.
+    fc2_W  = tf.Variable(tf.truncated_normal(shape=(120, 84), mean = mu, stddev = sigma))
+    fc2_b  = tf.Variable(tf.zeros(84))
+    fc2    = tf.matmul(fc1, fc2_W) + fc2_b
+    
+    # Activation.
+    fc2    = tf.nn.relu(fc2)
+
+    # Layer 5: Fully Connected. Input = 84. Output = 10.
+    fc3_W  = tf.Variable(tf.truncated_normal(shape=(84, 7), mean = mu, stddev = sigma))
+    fc3_b  = tf.Variable(tf.zeros(7))
+    logits = tf.matmul(fc2, fc3_W) + fc3_b
+    
+    return logits
+
+
+# Global parameters and operations
+BATCH_SIZE = 128
+
+# define placeholders for input variables
+x_holder = tf.placeholder(tf.float32, (None, 30, 100, 1))
+y_holder = tf.placeholder(tf.int32, (None))
+one_hot_y = tf.one_hot(y_holder, 7)
+
+# define the dlib detector and predictor
+predictor_path = "shape_predictor_68_face_landmarks.dat/data"
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(predictor_path)
+
+logits = LeNet(x_holder)
+
+# define the model evaluate operation
+correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(one_hot_y, 1))
+accuracy_operation = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+# define the predict operation
+predict_operation = tf.argmax(logits, 1)
+
+
 def pre_process(img, img_width=640, img_height=480, out_width=50, out_height=30):
     """Input a raw image, process to a certain format to throw into CNN."""
     """Return combined, equalized eyes with size (30, 100, 1)."""
@@ -95,9 +174,7 @@ def comb_hist_eye_cinmera(X_left, X_right):
 
 
 def extract_eyes_by_dlib(img, pad_scale=0.4, resize_width=50, resize_height=30, combine=False):
-    """Get facial landmark matrix by dlib, extract eyes from this matrix and return left and right eye image
-       combined or separately.  
-    """
+    # get facial landmark matrix by dlib
     mat = get_landmarks(img)
     
     left_left = mat[36,0]
@@ -115,8 +192,8 @@ def extract_eyes_by_dlib(img, pad_scale=0.4, resize_width=50, resize_height=30, 
     right_pad_width = int((right_right - right_left) * pad_scale)
     right_pad_height = int((right_bottom - right_top) * pad_scale)
     # left and right eye plus pads
-    left_eye = img[left_top-left_pad_height : left_bottom+left_pad_height, left_left-left_pad_width : left_right+left_pad_width, :]
-    right_eye = img[right_top-right_pad_height : right_bottom+right_pad_height, right_left-right_pad_width : right_right+right_pad_width, :]
+    left_eye = img[left_top-left_pad_height : left_bottom+left_pad_height, left_left-left_pad_width : left_right+left_pad_width]
+    right_eye = img[right_top-right_pad_height : right_bottom+right_pad_height, right_left-right_pad_width : right_right+right_pad_width]
     # resize
     left_eye = cv2.resize(left_eye,(resize_width, resize_height),interpolation=cv2.INTER_CUBIC)
     right_eye = cv2.resize(right_eye,(resize_width, resize_height),interpolation=cv2.INTER_CUBIC)
@@ -162,60 +239,6 @@ def shuffle_and_split(X, y, valid_ratio=0.2):
     return X_train, X_valid, y_train, y_valid
 
 
-def LeNet(x):    
-    # Arguments used for tf.truncated_normal, randomly defines variables for the weights and biases for each layer
-    mu = 0
-    sigma = 0.1
-    
-    # Layer 1: Convolutional. Input = 32x32x1. Output = 28x28x6.
-    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 1, 6), mean = mu, stddev = sigma))
-    conv1_b = tf.Variable(tf.zeros(6))
-    conv1   = tf.nn.conv2d(x, conv1_W, strides=[1, 1, 1, 1], padding='VALID') + conv1_b
-
-    # Activation.
-    conv1 = tf.nn.relu(conv1)
-
-    # Pooling. Input = 28x28x6. Output = 14x14x6.
-    conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-
-    # Layer 2: Convolutional. Output = 10x10x16.
-    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean = mu, stddev = sigma))
-    conv2_b = tf.Variable(tf.zeros(16))
-    conv2   = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID') + conv2_b
-    
-    # Activation.
-    conv2 = tf.nn.relu(conv2)
-
-    # Pooling. Input = 10x10x16. Output = 5x5x16.
-    conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
-
-    # Flatten. Input = 5x5x16. Output = 400.
-    fc0   = flatten(conv2)
-    
-    # Layer 3: Fully Connected. Input = 400. Output = 120.
-    fc1_W = tf.Variable(tf.truncated_normal(shape=(1408, 120), mean = mu, stddev = sigma))
-    fc1_b = tf.Variable(tf.zeros(120))
-    fc1   = tf.matmul(fc0, fc1_W) + fc1_b
-    
-    # Activation.
-    fc1    = tf.nn.relu(fc1)
-
-    # Layer 4: Fully Connected. Input = 120. Output = 84.
-    fc2_W  = tf.Variable(tf.truncated_normal(shape=(120, 84), mean = mu, stddev = sigma))
-    fc2_b  = tf.Variable(tf.zeros(84))
-    fc2    = tf.matmul(fc1, fc2_W) + fc2_b
-    
-    # Activation.
-    fc2    = tf.nn.relu(fc2)
-
-    # Layer 5: Fully Connected. Input = 84. Output = 10.
-    fc3_W  = tf.Variable(tf.truncated_normal(shape=(84, 7), mean = mu, stddev = sigma))
-    fc3_b  = tf.Variable(tf.zeros(7))
-    logits = tf.matmul(fc2, fc3_W) + fc3_b
-    
-    return logits
-
-
 def evaluate(X_data, y_data):
     """Evaluate the trained model on the input dataset, return the accuracy."""
     num_examples = len(X_data)
@@ -241,18 +264,18 @@ def predict(X_data):
     return prediction
 
 
+
 def main():
     # if True, train and validate the model; if False, use the trained model to de prediction.
-    TRAIN = True
-    BATCH_SIZE = 128
+    TRAIN = False
+
     rate = 0.001
     EPOCHS = 100
     saver_path = "./trained_models/model.ckpt"
+    
+    # define a tf model Saver object
+    saver = tf.train.Saver()
 
-    # define the dlib detector and predictor
-    predictor_path = "shape_predictor_68_face_landmarks.dat/data"
-    detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor(predictor_path)
     
     # load in training dataset and train the model
     if TRAIN:
@@ -265,10 +288,7 @@ def main():
         # Split a validation dataset and shuffle
         X_train, X_valid, y_train, y_valid = shuffle_and_split(X_combine_equ, y)
 
-        # define placeholders for input variables
-        x_holder = tf.placeholder(tf.float32, (None, 30, 100, 1))
-        y_holder = tf.placeholder(tf.int32, (None))
-        one_hot_y = tf.one_hot(y_holder, 7)
+
         print("marker2")
         # cnn training pipeline
         logits = LeNet(x_holder)
@@ -277,12 +297,6 @@ def main():
         optimizer = tf.train.AdamOptimizer(learning_rate = rate)
         training_operation = optimizer.minimize(loss_operation)
 
-        # define the model evaluate operation
-        correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(one_hot_y, 1))
-        accuracy_operation = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        print("marker3")
-        # define a tf model Saver object
-        saver = tf.train.Saver()
         
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
@@ -307,8 +321,7 @@ def main():
     
     # Test part. Do predictions with the trained model
     else:
-        # define the predict operation
-        predict_operation = tf.argmax(logits, 1)
+
         
         # load in test data
         X_test = []
