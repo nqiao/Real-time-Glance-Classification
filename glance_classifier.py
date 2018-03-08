@@ -228,14 +228,12 @@ def shuffle_and_split(X, y, valid_ratio=0.2):
     # chang data type to floate32
     # X_train = X_train.astype('float32')
     # X_test = X_test.astype('float32')
-    plt.figure(2, figsize=(16,20))
-    for i in range(0, 9):
-        plt.subplot(9, 1, i+1)
-        plt.tight_layout()
-        plt.imshow(X[i].squeeze())
-        plt.title(str(y[i]))
-
-    print(X_train.shape)
+    # plt.figure(2, figsize=(16,20))
+    # for i in range(0, 9):
+    #     plt.subplot(9, 1, i+1)
+    #     plt.tight_layout()
+    #     plt.imshow(X[i].squeeze())
+    #     plt.title(str(y[i]))
     return X_train, X_valid, y_train, y_valid
 
 
@@ -267,7 +265,7 @@ def predict(X_data):
 
 def main():
     # if True, train and validate the model; if False, use the trained model to de prediction.
-    TRAIN = False
+    TRAIN = True
 
     rate = 0.001
     EPOCHS = 100
@@ -283,46 +281,58 @@ def main():
         X, y, Mat = load_eye_cinmera()
         X_left, X_right = extract_eye_by_mat(X, Mat)
         X_combine_equ = comb_hist_eye_cinmera(X_left, X_right)
-        print("marker1")
         
         # Split a validation dataset and shuffle
         X_train, X_valid, y_train, y_valid = shuffle_and_split(X_combine_equ, y)
 
+        # plt.figure(1, figsize=(16,20))
+        # for i in range(0, 9):
+        #     plt.subplot(9, 1, i+1)
+        #     plt.tight_layout()
+        #     plt.imshow(X_train[i].squeeze())
+        #     plt.title(str(y_train[i]))
+        #     plt.savefig("./train.jpg")
 
-        print("marker2")
         # cnn training pipeline
-        logits = LeNet(x_holder)
+        # logits = LeNet(x_holder)
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=one_hot_y, logits=logits)
         loss_operation = tf.reduce_mean(cross_entropy)
         optimizer = tf.train.AdamOptimizer(learning_rate = rate)
         training_operation = optimizer.minimize(loss_operation)
 
         
+
+        X_train_input = X_train
+        X_valid_input = X_valid
+        y_train_input = y_train
+        y_valid_input = y_valid
+
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            num_examples = len(X_train)    
+            num_examples = len(X_train)
+            
             print("Training...")
             print()
             for i in range(EPOCHS):
                 # change different X_train input
-                X_train, y_train = shuffle(X_train, y_train)
+                X_train_input, y_train_input = shuffle(X_train_input, y_train_input)
                 for offset in range(0, num_examples, BATCH_SIZE):
                     end = offset + BATCH_SIZE
-                    batch_x, batch_y = X_train[offset:end], y_train[offset:end]
+                    batch_x, batch_y = X_train_input[offset:end], y_train_input[offset:end]
                     sess.run(training_operation, feed_dict={x_holder: batch_x, y_holder: batch_y})
                 # change different X_valid input    
-                validation_accuracy = evaluate(X_valid, y_valid)
+                validation_accuracy = evaluate(X_valid_input, y_valid_input)
                 print("EPOCH {} ...".format(i+1))
                 print("Validation Accuracy = {:.3f}".format(validation_accuracy))
                 print()
-                
+        
             saver.save(sess, saver_path)
             print("Model saved")
+                
     
     # Test part. Do predictions with the trained model
     else:
-
-        
         # load in test data
         X_test = []
         processed_img = pre_process(io.imread("./data/Eye_chimeraToPublish/0/eyes029191.jpg"))
