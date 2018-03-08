@@ -1,6 +1,6 @@
 # ignore data files
 /data/*
-
+!/data/Eye_chimeraToPublish/*
 # ignore models
 /models/*
 /trained_models/*
