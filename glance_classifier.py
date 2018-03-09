@@ -265,7 +265,7 @@ def predict(X_data):
 
 def main():
     # if True, train and validate the model; if False, use the trained model to de prediction.
-    TRAIN = True
+    TRAIN = False
 
     rate = 0.001
     EPOCHS = 100
